@@ -1,0 +1,56 @@
+/* Tipografias, resetear valores css */
+@import url('https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap');
+*,
+*:after,
+*:before {
+  margin: 0;
+  padding: 0;
+  box-sizing: inherit;
+}
+body {
+  /*THIS FIXES A RANDOM ERROR THAT CAN'T LET YOU SCROLL ON RANDOM SITUATIONS*/
+  overflow: visible !important;
+  min-width: 100%;
+}
+
+body,
+html {
+  box-sizing: border-box;
+  font-family: 'Montserrat', sans-serif !important;
+  background-color: #dcdcdc;
+  font-size: 16px;
+}
+#root {
+  min-height: 100vh;
+  height: 100vh;
+}
+a {
+  text-decoration: none;
+}
+
+.btn-container {
+  height: 40px;
+  width: 40px;
+  border-radius: 10px;
+}
+
+.btn-container > .btn-icon {
+  color: #ffffff;
+  font-size: 2rem;
+}
+
+.btn-variant-delete {
+  background: #ff0000;
+}
+
+.btn-variant-edit {
+  background: #45b71d;
+}
+
+/* Add station */
+.card-add-station-container {
+  display: flex !important;
+  width: 400px !important;
+  border: 3px dashed #939393 !important;
+  border-radius: 10px !important;
+}

@@ -1,0 +1,7 @@
+.card-station-container {
+  margin: 2rem !important;
+  max-width: 400px;
+}
+.card-station-location {
+  color: #ff0000;
+}
