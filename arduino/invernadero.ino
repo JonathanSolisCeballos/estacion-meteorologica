@@ -15,8 +15,8 @@ SFE_BMP180 bmp180;
 //Firebase
 #define FIREBASE_HOST "invernadero-iot-2020.firebaseio.com" //Without http:// or https:// schemes
 #define FIREBASE_AUTH "PhpIGPF49PPvmCTPMQpS1SWqnLI3c5x0f7Oc0Ytx"
-#define WIFI_SSID "See goo.gl/rk2yhL to connect"
-#define WIFI_PASSWORD "A266868204ruse"
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
 #define PATH "/naves"
 FirebaseData firebaseData;
 FirebaseJson firebaseJson;
