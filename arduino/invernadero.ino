@@ -20,7 +20,11 @@ SFE_BMP180 bmp180;
 #define FIREBASE_AUTH "PhpIGPF49PPvmCTPMQpS1SWqnLI3c5x0f7Oc0Ytx"
 #define WIFI_SSID ""
 #define WIFI_PASSWORD ""
+<<<<<<< HEAD
 String nombreNave = "1";
+=======
+#define PATH "/naves"
+>>>>>>> origin/enri
 FirebaseData firebaseData;
 FirebaseJson firebaseJson;
 
