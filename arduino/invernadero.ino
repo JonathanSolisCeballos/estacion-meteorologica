@@ -12,17 +12,20 @@
 #include <Wire.h>
 SFE_BMP180 bmp180;
 
+//Time
+#include <TimeLib.h>
+
 //Firebase
 #define FIREBASE_HOST "invernadero-iot-2020.firebaseio.com" //Without http:// or https:// schemes
 #define FIREBASE_AUTH "PhpIGPF49PPvmCTPMQpS1SWqnLI3c5x0f7Oc0Ytx"
-#define WIFI_SSID "See goo.gl/rk2yhL to connect"
-#define WIFI_PASSWORD "A266868204ruse"
-#define PATH "/naves"
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
+String nombreNave = "1";
 FirebaseData firebaseData;
 FirebaseJson firebaseJson;
 
 //DHT11 
-#define DHTPIN 13 //D8
+#define DHTPIN 15 //D8
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 #define ALTITUDE 470 //metros
@@ -60,7 +63,10 @@ void setup()
   //Iniciar el BMP180
   if (bmp180.begin()) Serial.println("BMP180 init success");
   else Serial.println("BMP180 init fail\n\n");
-  
+
+  //Hr-Min-Sec DD-MM-YY
+  setTime(4,32,00,11,06,2020);
+
   Serial.println("------------------------------------");
 }
 
@@ -69,10 +75,15 @@ void loop()
   delay(1000);
 
   //DHT11
-  dht11Sensor();
-  
+  dht11Sensor();   
+
+  //Fotorresistor
+  fotorresistor();
+
   //BMP180
-  //bmp180Sensor();   
+  bmp180Sensor();
+
+  Serial.println("------------------------------------");
 }
 
 void tempSerial(float h, float t){
@@ -87,38 +98,54 @@ void tempSerial(float h, float t){
 
 void dht11Sensor(){
   //DHT11
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-
-  //Firebase
-  FirebaseData fireData;
-  FirebaseJson firebaseJson;
+  float hum = dht.readHumidity();
+  float temp = dht.readTemperature();
 
   //Validar si falló la lectura
-  if (isnan(h) || isnan(t)) {
+  if (isnan(hum) || isnan(temp)) {
     Serial.println(F("Failed to read from DHT sensor!"));
     return;
   }
 
   //Enviar valores Firebase
-  firebaseJson.add("dato", t);
-  firebaseJson.add("createdAt", "11-06-20");
+  //Temperatura
+  firebaseJson.add("dato", temp);
+  firebaseJson.add("createdAt", (String)now());
   
-  if(Firebase.pushJSON(fireData, "/naves/1/sensores/temperatura/datos", firebaseJson)){
-    Serial.println(fireData.dataPath());
-    Serial.println(fireData.pushName());
-    Serial.println(fireData.dataPath() + "/"+ fireData.pushName());
-  } else Serial.println(fireData.errorReason());
+  if(Firebase.pushJSON(firebaseData, "/naves/"+ nombreNave +"/sensores/temperatura", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
 
-  //Imprimir valores por Serial
+  //Humedad
+  firebaseJson.add("dato", hum);
+  firebaseJson.add("createdAt", (String)now());
+  
+  if(Firebase.pushJSON(firebaseData, "/naves/"+ nombreNave +"/sensores/humedad", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+
+  Serial.println("DHT11");
   Serial.print(F("Humidity: "));
-  Serial.print(h);
+  Serial.print(hum);
   Serial.println(F("%"));
   
   Serial.print(F("Temperature: "));
-  Serial.print(t);
-  Serial.println(F("°C")); 
-  
+  Serial.print(temp);
+  Serial.println(F("°C"));  
+}
+
+void fotorresistor(){
+  float luz = analogRead(A0);
+  Serial.println("Luz: " + (String)luz);
+
+  //Temperatura
+  firebaseJson.add("dato", luz);
+  firebaseJson.add("createdAt", (String)now());
+
+  Serial.println("Fotorresistor");
+  if(Firebase.pushJSON(firebaseData, "/naves/"+ nombreNave +"/sensores/luz", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
 }
 
 void bmp180Sensor(){
@@ -126,9 +153,7 @@ void bmp180Sensor(){
   char status;
   double temp, pres, pSeaLevel, alt;
 
-  //Firebase
-  FirebaseData fireData;
-  FirebaseJson firebaseJson;
+  Serial.println("BMP180");
 
   status = bmp180.startTemperature();
   if (status != 0){
@@ -164,14 +189,11 @@ void bmp180Sensor(){
           firebaseJson.add("absoluta", pres);
           firebaseJson.add("relativa", pSeaLevel);
           firebaseJson.add("altitud", alt);
-          firebaseJson.add("createdAt", "11-06-20");
+          firebaseJson.add("createdAt", (String)now());
           
-          if(Firebase.pushJSON(fireData, "/naves/1/sensores/presion/datos", firebaseJson)){
-            Serial.println(fireData.dataPath());
-            Serial.println(fireData.pushName());
-            Serial.println(fireData.dataPath() + "/"+ fireData.pushName());
-          } else Serial.println(fireData.errorReason());
-                    
+          if(Firebase.pushJSON(firebaseData, "/naves/"+ nombreNave +"/sensores/presion", firebaseJson))
+            Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+          else Serial.println(firebaseData.errorReason());                    
         }
         else Serial.println("error retrieving pressure measurement\n");
       }
