@@ -22,7 +22,7 @@ FirebaseData firebaseData;
 FirebaseJson firebaseJson;
 
 //DHT11 
-#define DHTPIN 13 //D8
+#define DHTPIN 13 //D7
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 #define ALTITUDE 470 //metros
