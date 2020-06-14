@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import AddRoundedIcon from '@material-ui/icons/AddRounded';
 import CardActionArea from '@material-ui/core/CardActionArea';
 import ModalCreateStation from './ModalCreateStation';
 
-export default function CardAddstation() {
-  const [open, setOpen] = useState(false);
-
+export default function CardAddstation({
+  handleCreateStation,
+  loading,
+  open,
+  setOpen
+}) {
   const handleClick = () => {
     setOpen(true);
   };
@@ -17,7 +20,12 @@ export default function CardAddstation() {
       >
         <AddRoundedIcon style={{ fontSize: '6rem', fill: '#c4c4c4' }} />
       </CardActionArea>
-      <ModalCreateStation open={open} setOpen={setOpen} />
+      <ModalCreateStation
+        open={open}
+        setOpen={setOpen}
+        handleCreateStation={handleCreateStation}
+        loading={loading}
+      />
     </>
   );
 }

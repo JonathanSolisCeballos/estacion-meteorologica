@@ -15,7 +15,16 @@ import imgGreenHouse from '../assets/greenHouse.jpg';
 import BtnDelete from './BtnDelete';
 import BtnEdit from './BtnEdit';
 
-export default function CardStation() {
+export default function CardStation({
+  handleDeleteClick,
+  id,
+  nombre,
+  descripción,
+  ubicación
+}) {
+  const handleDeleteClickId = () => {
+    handleDeleteClick(id);
+  };
   return (
     <>
       <Card className="card-station-container">
@@ -33,22 +42,22 @@ export default function CardStation() {
           />
           <CardContent>
             <Typography gutterBottom variant="h5" component="h2">
-              Invenadero Chiapa
+              {nombre && nombre}
             </Typography>
             <Typography variant="body2" color="textSecondary" component="p">
-              Maiores ad nisi explicabo. Natus non id velit aut porro illum
-              perspiciatis. Fugit aut quia quod perferendis. Provident animi
-              velit et error sed sunt quia autem.
+              {descripción && descripción}
             </Typography>
           </CardContent>
         </CardActionArea>
 
         <CardContent>
-          <div className="d-flex align-items-center card-station-location">
-            <LocationOnOutlinedIcon /> <span>Chiapa,Colima</span>
-          </div>
+          {ubicación && (
+            <div className="d-flex align-items-center card-station-location">
+              <LocationOnOutlinedIcon /> <span>{ubicación}</span>
+            </div>
+          )}
           <div className="d-flex">
-            <BtnDelete />
+            <BtnDelete handleDeleteClick={handleDeleteClickId} />
             <BtnEdit />
           </div>
         </CardContent>
