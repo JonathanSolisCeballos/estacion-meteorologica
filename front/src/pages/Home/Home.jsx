@@ -65,7 +65,7 @@ export default function Home() {
 
   const removeNave = idNave => {
     console.log('removing!!', idNave);
-    console.log('naves', naves);
+    setNaves(prevNaves => prevNaves.filter(el => el.id !== idNave));
     // let result = naves.filter(el => el.id !== idNave);
     // console.log('Result', result);
   };
