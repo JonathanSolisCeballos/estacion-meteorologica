@@ -36,10 +36,7 @@ DHT dht(DHTPIN, DHTTYPE);
 #define D6 12 //Alt
 #define D5 14 //Temp
 #define D4 02 //Hum
-<<<<<<< HEAD
-=======
 #define D0 16 //Relay
->>>>>>> master
 
 //Globales para los LEDs
 float gTemp = -1;
@@ -47,10 +44,7 @@ float gPres = -1;
 float gPresRel = -1;
 float gAlt = -1;
 float gHum = -1;
-<<<<<<< HEAD
-=======
 float gLuz = -1;
->>>>>>> master
 
 //IDs cada sensor
 String idTemp = "";
@@ -104,21 +98,15 @@ void setup()
   Firebase.deleteNode(firebaseData, "/sensores"); 
   initSensors();
 
-<<<<<<< HEAD
-=======
   makeRelay();
 
->>>>>>> master
   //Pines LEDs modo salida
   pinMode(D8, OUTPUT);
   pinMode(D7, OUTPUT);
   pinMode(D6, OUTPUT);
   pinMode(D5, OUTPUT);
   pinMode(D4, OUTPUT);
-<<<<<<< HEAD
-=======
   pinMode(D0, OUTPUT);
->>>>>>> master
   
   Serial.println("------------------------------------");
 }
