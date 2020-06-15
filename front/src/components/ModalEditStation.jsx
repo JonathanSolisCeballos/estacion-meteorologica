@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import Dialog from '@material-ui/core/Dialog';
@@ -8,17 +8,29 @@ import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import Spinner from '../shared/Spinner';
 
-export default function ModalCreateStation({
+export default function ModalEditStation({
   open,
   setOpen,
-  handleCreateStation,
-  loading
+  handleEditStation,
+  loading = false,
+  naveData
 }) {
   const [state, setState] = useState({
     nombre: '',
     descripción: '',
-    ubicación: ''
+    ubicación: '',
+    id: ''
   });
+  // console.log('RENDERED MODAL EDIT');
+
+  useEffect(() => {
+    setState({
+      nombre: naveData.nombre || '',
+      descripción: naveData.descripción || '',
+      ubicación: naveData.ubicación || '',
+      id: naveData.id || ''
+    });
+  }, [naveData]);
 
   const handleInputsChange = e => {
     setState({
@@ -31,8 +43,8 @@ export default function ModalCreateStation({
     setOpen(false);
   };
 
-  const createStation = () => {
-    handleCreateStation(state, () => {
+  const editStation = () => {
+    handleEditStation(state, () => {
       setState({
         nombre: '',
         descripción: '',
@@ -48,7 +60,7 @@ export default function ModalCreateStation({
         onClose={handleClose}
         aria-labelledby="form-dialog-title"
       >
-        <DialogTitle id="form-dialog-title">Crear nueva nave</DialogTitle>
+        <DialogTitle id="form-dialog-title">Editar nave</DialogTitle>
         {loading ? (
           <div style={{ margin: '7rem 12rem' }}>
             <Spinner />
@@ -56,13 +68,7 @@ export default function ModalCreateStation({
         ) : (
           <>
             <DialogContent>
-              <DialogContentText>
-                Una nave es una estación de control, en ella puedes controlar
-                diferentes sensores que registres
-              </DialogContentText>
-              <DialogContentText>
-                <b>Ingresa los siguientes datos:</b>
-              </DialogContentText>
+              <DialogContentText>Ingresa los nuevos datos</DialogContentText>
               <TextField
                 autoFocus
                 margin="dense"
@@ -96,12 +102,8 @@ export default function ModalCreateStation({
               />
             </DialogContent>
             <DialogActions>
-              <Button
-                onClick={createStation}
-                color="primary"
-                variant="contained"
-              >
-                Crear
+              <Button onClick={editStation} color="primary" variant="contained">
+                Actualizar
               </Button>
             </DialogActions>
           </>

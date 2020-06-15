@@ -36,6 +36,10 @@ DHT dht(DHTPIN, DHTTYPE);
 #define D6 12 //Alt
 #define D5 14 //Temp
 #define D4 02 //Hum
+<<<<<<< HEAD
+=======
+#define D0 16 //Relay
+>>>>>>> master
 
 //Globales para los LEDs
 float gTemp = -1;
@@ -43,6 +47,10 @@ float gPres = -1;
 float gPresRel = -1;
 float gAlt = -1;
 float gHum = -1;
+<<<<<<< HEAD
+=======
+float gLuz = -1;
+>>>>>>> master
 
 //IDs cada sensor
 String idTemp = "";
@@ -96,12 +104,21 @@ void setup()
   Firebase.deleteNode(firebaseData, "/sensores"); 
   initSensors();
 
+<<<<<<< HEAD
+=======
+  makeRelay();
+
+>>>>>>> master
   //Pines LEDs modo salida
   pinMode(D8, OUTPUT);
   pinMode(D7, OUTPUT);
   pinMode(D6, OUTPUT);
   pinMode(D5, OUTPUT);
   pinMode(D4, OUTPUT);
+<<<<<<< HEAD
+=======
+  pinMode(D0, OUTPUT);
+>>>>>>> master
   
   Serial.println("------------------------------------");
 }
@@ -117,7 +134,163 @@ void loop()
   //BMP180
   bmp180Sensor();
 
+  //Relay
+  relay();
+
   Serial.println("------------------------------------");
+  delay(5000);
+}
+
+void makeRelay(){  
+  firebaseJson.add("nave", ID_NAVE);  
+  firebaseJson.add("activatedAt", "");  
+  firebaseJson.add("limit", "");
+  firebaseJson.add("sensor", idTemp);
+  firebaseJson.add("wasActive", false);
+  firebaseJson.add("isActive", false);
+  if(Firebase.pushJSON(firebaseData, "/relay_prueba/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();
+}
+
+void relay(){ 
+  bool isActive = isRelayActive();
+  if(isActive){
+    
+    String idSensor = relaySensor();
+    if(relaySensorExists()){
+      
+      String limitType = limitTypeRelay();
+      if(limitType == "minVal" || limitType == "maxVal"){
+        
+        float limitVal = readValue(idSensor, limitType);
+        float actualVal = getActualVal();
+        if(actualVal >= limitVal && limitType == "maxVal"){
+          digitalWrite(D0, HIGH);
+
+          if(!wasActive()){
+            //Guardar tiempo de activado
+            setActivatedTime();
+            changeStateWasActive(true);
+          }          
+          
+          Serial.println("Relay ON");          
+        } 
+        else if(actualVal <= limitVal && limitType == "minVal"){
+          digitalWrite(D0, HIGH);
+
+          if(!wasActive()){
+            //Guardar tiempo de activado
+            setActivatedTime();
+            changeStateWasActive(true);
+          } 
+          
+          Serial.println("Relay ON");
+        }
+        else{
+          changeStateWasActive(false);           
+          digitalWrite(D0, LOW);  
+        }
+                
+      }else Serial.println("Invalid limit type");          
+    }else Serial.println("Invalid idSensor");     
+  }else{
+    digitalWrite(D0, LOW);
+    Serial.println("Relay inactive");  
+    changeStateWasActive(false);            
+  }
+}
+
+void setActivatedTime(){
+  firebaseJson.add("time", (String)now());  
+  if(Firebase.pushJSON(firebaseData, "/relay/activatedAt/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();   
+}
+
+void changeStateWasActive(bool state){
+  //Cambiar wasActive
+  firebaseJson.set("wasActive", state);  
+  if(Firebase.updateNode(firebaseData, "/relay/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.dataType());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();   
+}
+
+bool relaySensorExists(){
+  String idSensor = relaySensor();
+  if(idSensor == idTemp) return true;
+  if(idSensor == idAlt) return true;
+  if(idSensor == idHum) return true;
+  if(idSensor == idPres) return true;
+  if(idSensor == idLuz) return true;
+  if(idSensor == idPresRel) return true;
+
+  return false;
+}
+
+float getActualVal(){
+  float actualVal = NULL;
+  
+  String idSensor = relaySensor();
+  if(idSensor == idTemp) actualVal = gTemp;
+  if(idSensor == idAlt) actualVal = gAlt;
+  if(idSensor == idHum) actualVal = gHum;
+  if(idSensor == idPres) actualVal = gPres;
+  if(idSensor == idLuz) actualVal = gLuz;
+  if(idSensor == idPresRel) actualVal = gPresRel;
+
+  return actualVal;
+}
+
+String relaySensor(){
+  String valor = "";
+  if (!Firebase.getString(firebaseData, "/relay/sensor/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.stringData()); 
+  }else{
+    printVal("Relay ID", " - ", (String)firebaseData.stringData());
+    valor = (String)firebaseData.stringData();
+  }
+  return valor;
+}
+
+bool isRelayActive(){
+  bool isActive = false;
+  if (!Firebase.getBool(firebaseData, "/relay/isActive/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.boolData()); 
+  }else{
+    printVal("Relay isActive", " - ", (String)firebaseData.boolData());
+    isActive = (bool)firebaseData.boolData();
+  }
+  return isActive;
+}
+
+bool wasActive(){
+  bool wasActive = false;
+  if (!Firebase.getBool(firebaseData, "/relay/wasActive/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.boolData()); 
+  }else{
+    printVal("Relay wasActive", " - ", (String)firebaseData.boolData());
+    wasActive = (bool)firebaseData.boolData();
+  }
+  return wasActive;
+}
+
+String limitTypeRelay(){
+  String valor = "";
+  if (!Firebase.getString(firebaseData, "/relay/limit/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.stringData()); 
+  }else{
+    printVal("Relay LIMIT", " - ", (String)firebaseData.stringData());
+    valor = (String)firebaseData.stringData();
+  }
+  return valor;  
 }
 
 String initNewNave(){
@@ -174,7 +347,8 @@ void dht11Sensor(){
 void fotorresistor(){
   float luz = analogRead(A0);
   Serial.println("Luz: " + (String)luz);
-
+  gLuz = luz;
+  
   //Luz
   firebaseJson.add("dato", luz);
   firebaseJson.add("createdAt", (String)now());
