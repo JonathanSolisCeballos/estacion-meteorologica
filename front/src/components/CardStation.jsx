@@ -1,4 +1,5 @@
 import React from 'react';
+import { useHistory } from 'react-router-dom';
 import Card from '@material-ui/core/Card';
 import CardActionArea from '@material-ui/core/CardActionArea';
 import CardActions from '@material-ui/core/CardActions';
@@ -17,22 +18,27 @@ import BtnEdit from './BtnEdit';
 
 export default function CardStation({
   handleDeleteClick,
+  handleEditClick,
   id,
   nombre,
   descripción,
   ubicación
 }) {
+  let history = useHistory();
+
   const handleDeleteClickId = () => {
     handleDeleteClick(id);
   };
+
+  const handleOpenStationClick = () => {
+    console.log('click on card with id', id);
+    history.push(`/naves/${id}`);
+  };
+
   return (
     <>
       <Card className="card-station-container">
-        <CardActionArea
-          onClick={() => {
-            console.log('WUU');
-          }}
-        >
+        <CardActionArea onClick={handleOpenStationClick}>
           <CardMedia
             component="img"
             alt="Contemplative Reptile"
@@ -58,12 +64,17 @@ export default function CardStation({
           )}
           <div className="d-flex">
             <BtnDelete handleDeleteClick={handleDeleteClickId} />
-            <BtnEdit />
+            <BtnEdit handleEditClick={handleEditClick} />
           </div>
         </CardContent>
 
         <CardActions className="float-right">
-          <Button size="small" variant="outlined" color="primary">
+          <Button
+            size="small"
+            variant="outlined"
+            color="primary"
+            onClick={handleOpenStationClick}
+          >
             Ver datos
           </Button>
         </CardActions>

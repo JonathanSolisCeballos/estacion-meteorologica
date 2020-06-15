@@ -6,6 +6,7 @@ import { confirmDialog, errorAlert, successAlert } from '../../shared/Alerts';
 
 import * as firebase from 'firebase';
 import Spinner from '../../shared/Spinner';
+import ModalEditStation from '../../components/ModalEditStation';
 
 let firebaseConfig = {
   apiKey: 'AIzaSyBcR8-p_zpVLnj4L3CHJPIRy2WASULsMDA',
@@ -24,7 +25,9 @@ export default function Home() {
   const [naves, setNaves] = useState([]);
   const [loadingModal, setLoadingModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalAddOpen, setModalAddOpen] = useState(false);
+  const [modalEditOpen, setModalEditOpen] = useState(false);
+  const [editNaveData, setEditNaveData] = useState({});
 
   const handleDeleteClick = id => {
     // console.log('Trying to delete>', id);
@@ -32,9 +35,46 @@ export default function Home() {
       '¿Estás seguro que deseas eliminar esta nave?',
       'Esta acción es irreversible',
       'Nave Eliminada correctamente',
-      'Si esto fue un error ya puedes ponerte a llorar',
+      'Si esto fue un error, ya puedes ponerte a llorar c:',
       successCallback => confirmDelete(id, successCallback)
     );
+  };
+
+  const handleEditClick = naveData => {
+    console.log('Data for edit', naveData);
+    setModalEditOpen(true);
+    setEditNaveData(naveData);
+    // updateFildsWithValues(naveData);
+  };
+
+  const editStation = (data, clearInputsCallback) => {
+    console.log('Cofirm edit with data:', data);
+    updateDataFirebase(`naves/${data.id}`, {
+      nombre: data.nombre,
+      descripción: data.descripción,
+      ubicación: data.ubicación
+    });
+  };
+
+  const updateDataFirebase = (ref, data, successCallback = () => {}) => {
+    firebase
+      .database()
+      .ref(ref)
+      .set(data, function(error) {
+        setModalEditOpen(false);
+        if (error) {
+          // The write failed...
+          errorAlert(
+            'Oops...',
+            'Hubo un error al actualizar la nave, intentalo de nuevo'
+          );
+          console.error(error);
+        } else {
+          // Data saved successfully!
+          successAlert('Nave actualizada correctamente', '');
+          successCallback();
+        }
+      });
   };
 
   const confirmDelete = (id, successCallback) => {
@@ -58,9 +98,22 @@ export default function Home() {
       });
   };
 
-  const updateNaves = newNaves => {
-    // console.log('New naves!!', newNaves);
+  const addNaves = newNaves => {
+    console.log('New nave, data recieved', newNaves);
     setNaves(prevNaves => [...prevNaves, newNaves]);
+  };
+
+  const updateNave = newNave => {
+    console.log('Updated naves in realtime');
+    setNaves(prevNaves => {
+      let foundedNave = prevNaves.find(el => el.id === newNave.id);
+      foundedNave.nombre = newNave.nombre;
+      foundedNave.descripción = newNave.descripción;
+      foundedNave.ubicación = newNave.ubicación;
+      // let prevNavesFiltered = prevNaves.filter(el => el.id !== newNave.id);
+      console.log('NOW naves are', prevNaves);
+      return prevNaves;
+    });
   };
 
   const removeNave = idNave => {
@@ -89,39 +142,55 @@ export default function Home() {
       .push()
       .set(data, function(error) {
         setLoadingModal(false);
-        setModalOpen(false);
+        setModalAddOpen(false);
         if (error) {
           // The write failed...
           errorAlert(
             'Oops...',
             'Hubo un error al crear la nave, intentalo de nuevo'
           );
-          console.log('error', error);
+          console.error(error);
         } else {
           // Data saved successfully!
           successAlert('Nave creada correctamente', '');
           successCallback();
-          console.log('Nave creada');
         }
       });
   };
 
   useEffect(() => {
     let navesRef = firebase.database().ref('naves/');
+
     navesRef.once('value', function(snapshot) {
       let data = snapshot.val();
       Object.entries(data).forEach(el => (el[1].id = el[0]));
 
       retrieveNaves(Object.values(data));
     });
+
     navesRef.on('child_added', function(snapshot) {
-      // console.log('key of nave', snapshot.key);
-      updateNaves(snapshot.val());
+      let data = snapshot.val();
+      data = {
+        ...data,
+        id: snapshot.key
+      };
+      addNaves(data);
     });
+
     navesRef.on('child_removed', function(snapshot) {
       // console.log('key of nave', snapshot.key);
       removeNave(snapshot.key);
       console.log('Detected that a child was removed', snapshot.val());
+    });
+
+    navesRef.on('child_changed', function(snapshot) {
+      let data = snapshot.val();
+      data = {
+        ...data,
+        id: snapshot.key
+      };
+      console.log('Child changed', data);
+      updateNave(data);
     });
   }, []);
 
@@ -133,7 +202,7 @@ export default function Home() {
         <Container
           maxWidth="xl"
           style={{
-            backgroundColor: '#cfe8fc',
+            // backgroundColor: '#cfe8fc',
             minHeight: '100vh',
             padding: '1rem',
             display: 'flex'
@@ -147,6 +216,7 @@ export default function Home() {
               naves.map((nave, indx) => (
                 <CardStation
                   handleDeleteClick={handleDeleteClick}
+                  handleEditClick={() => handleEditClick(nave)}
                   nombre={nave.nombre}
                   descripción={nave.descripción}
                   ubicación={nave.ubicación}
@@ -157,8 +227,14 @@ export default function Home() {
             <CardAddstation
               handleCreateStation={handleCreateStation}
               loading={loadingModal}
-              open={modalOpen}
-              setOpen={setModalOpen}
+              open={modalAddOpen}
+              setOpen={setModalAddOpen}
+            />
+            <ModalEditStation
+              open={modalEditOpen}
+              setOpen={setModalEditOpen}
+              handleEditStation={editStation}
+              naveData={editNaveData}
             />
           </div>
         </Container>
