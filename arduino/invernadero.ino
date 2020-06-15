@@ -12,20 +12,47 @@
 #include <Wire.h>
 SFE_BMP180 bmp180;
 
+//Time
+#include <TimeLib.h>
+
 //Firebase
 #define FIREBASE_HOST "invernadero-iot-2020.firebaseio.com" //Without http:// or https:// schemes
 #define FIREBASE_AUTH "PhpIGPF49PPvmCTPMQpS1SWqnLI3c5x0f7Oc0Ytx"
-#define WIFI_SSID "See goo.gl/rk2yhL to connect"
-#define WIFI_PASSWORD "A266868204ruse"
-#define PATH "/naves"
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
+String ID_NAVE = "1";
 FirebaseData firebaseData;
 FirebaseJson firebaseJson;
 
 //DHT11 
-#define DHTPIN 13 //D8
+#define DHTPIN 0 //D3
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 #define ALTITUDE 470 //metros
+
+//LEDs sensores
+#define D8 15 //PresAbs
+#define D7 13 //PresRel
+#define D6 12 //Alt
+#define D5 14 //Temp
+#define D4 02 //Hum
+#define D0 16 //Relay
+
+//Globales para los LEDs
+float gTemp = -1;
+float gPres = -1;
+float gPresRel = -1;
+float gAlt = -1;
+float gHum = -1;
+float gLuz = -1;
+
+//IDs cada sensor
+String idTemp = "";
+String idAlt = "";
+String idHum = "";
+String idPres = "";
+String idLuz = "";
+String idPresRel = "";
 
 void setup()
 {
@@ -60,65 +87,265 @@ void setup()
   //Iniciar el BMP180
   if (bmp180.begin()) Serial.println("BMP180 init success");
   else Serial.println("BMP180 init fail\n\n");
+
+  //Hr-Min-Sec DD-MM-YY
+  setTime(11,10,00,14,06,2020);
+
+  //Crear nave en BD
+  ID_NAVE = initNewNave();
+
+  //Eliminar sensores actuales
+  Firebase.deleteNode(firebaseData, "/sensores"); 
+  initSensors();
+
+  makeRelay();
+
+  //Pines LEDs modo salida
+  pinMode(D8, OUTPUT);
+  pinMode(D7, OUTPUT);
+  pinMode(D6, OUTPUT);
+  pinMode(D5, OUTPUT);
+  pinMode(D4, OUTPUT);
+  pinMode(D0, OUTPUT);
   
   Serial.println("------------------------------------");
 }
 
 void loop()
-{
-  delay(1000);
-
+{   
   //DHT11
-  dht11Sensor();
-  
+  dht11Sensor();   
+
+  //Fotorresistor
+  fotorresistor();
+
   //BMP180
-  //bmp180Sensor();   
+  bmp180Sensor();
+
+  //Relay
+  relay();
+
+  Serial.println("------------------------------------");
+  delay(5000);
 }
 
-void tempSerial(float h, float t){
-  Serial.print(F("Humidity: "));
-  Serial.print(h);
-  Serial.println(F("%"));
+void makeRelay(){  
+  firebaseJson.add("nave", ID_NAVE);  
+  firebaseJson.add("activatedAt", "");  
+  firebaseJson.add("limit", "");
+  firebaseJson.add("sensor", idTemp);
+  firebaseJson.add("wasActive", false);
+  firebaseJson.add("isActive", false);
+  if(Firebase.pushJSON(firebaseData, "/relay_prueba/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();
+}
+
+void relay(){ 
+  bool isActive = isRelayActive();
+  if(isActive){
+    
+    String idSensor = relaySensor();
+    if(relaySensorExists()){
+      
+      String limitType = limitTypeRelay();
+      if(limitType == "minVal" || limitType == "maxVal"){
+        
+        float limitVal = readValue(idSensor, limitType);
+        float actualVal = getActualVal();
+        if(actualVal >= limitVal && limitType == "maxVal"){
+          digitalWrite(D0, HIGH);
+
+          if(!wasActive()){
+            //Guardar tiempo de activado
+            setActivatedTime();
+            changeStateWasActive(true);
+          }          
+          
+          Serial.println("Relay ON");          
+        } 
+        else if(actualVal <= limitVal && limitType == "minVal"){
+          digitalWrite(D0, HIGH);
+
+          if(!wasActive()){
+            //Guardar tiempo de activado
+            setActivatedTime();
+            changeStateWasActive(true);
+          } 
+          
+          Serial.println("Relay ON");
+        }
+        else{
+          changeStateWasActive(false);           
+          digitalWrite(D0, LOW);  
+        }
+                
+      }else Serial.println("Invalid limit type");          
+    }else Serial.println("Invalid idSensor");     
+  }else{
+    digitalWrite(D0, LOW);
+    Serial.println("Relay inactive");  
+    changeStateWasActive(false);            
+  }
+}
+
+void setActivatedTime(){
+  firebaseJson.add("time", (String)now());  
+  if(Firebase.pushJSON(firebaseData, "/relay/activatedAt/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();   
+}
+
+void changeStateWasActive(bool state){
+  //Cambiar wasActive
+  firebaseJson.set("wasActive", state);  
+  if(Firebase.updateNode(firebaseData, "/relay/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.dataType());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();   
+}
+
+bool relaySensorExists(){
+  String idSensor = relaySensor();
+  if(idSensor == idTemp) return true;
+  if(idSensor == idAlt) return true;
+  if(idSensor == idHum) return true;
+  if(idSensor == idPres) return true;
+  if(idSensor == idLuz) return true;
+  if(idSensor == idPresRel) return true;
+
+  return false;
+}
+
+float getActualVal(){
+  float actualVal = NULL;
   
-  Serial.print(F("Temperature: "));
-  Serial.print(t);
-  Serial.println(F("°C")); 
+  String idSensor = relaySensor();
+  if(idSensor == idTemp) actualVal = gTemp;
+  if(idSensor == idAlt) actualVal = gAlt;
+  if(idSensor == idHum) actualVal = gHum;
+  if(idSensor == idPres) actualVal = gPres;
+  if(idSensor == idLuz) actualVal = gLuz;
+  if(idSensor == idPresRel) actualVal = gPresRel;
+
+  return actualVal;
+}
+
+String relaySensor(){
+  String valor = "";
+  if (!Firebase.getString(firebaseData, "/relay/sensor/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.stringData()); 
+  }else{
+    printVal("Relay ID", " - ", (String)firebaseData.stringData());
+    valor = (String)firebaseData.stringData();
+  }
+  return valor;
+}
+
+bool isRelayActive(){
+  bool isActive = false;
+  if (!Firebase.getBool(firebaseData, "/relay/isActive/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.boolData()); 
+  }else{
+    printVal("Relay isActive", " - ", (String)firebaseData.boolData());
+    isActive = (bool)firebaseData.boolData();
+  }
+  return isActive;
+}
+
+bool wasActive(){
+  bool wasActive = false;
+  if (!Firebase.getBool(firebaseData, "/relay/wasActive/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.boolData()); 
+  }else{
+    printVal("Relay wasActive", " - ", (String)firebaseData.boolData());
+    wasActive = (bool)firebaseData.boolData();
+  }
+  return wasActive;
+}
+
+String limitTypeRelay(){
+  String valor = "";
+  if (!Firebase.getString(firebaseData, "/relay/limit/")){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.stringData()); 
+  }else{
+    printVal("Relay LIMIT", " - ", (String)firebaseData.stringData());
+    valor = (String)firebaseData.stringData();
+  }
+  return valor;  
+}
+
+String initNewNave(){
+  firebaseJson.add("descripcion", "Add description");
+  firebaseJson.add("nombre", "Add a name");
+  firebaseJson.add("ubicacion", "Add location");
+
+  if(Firebase.pushJSON(firebaseData, "/naves/", firebaseJson))
+    Serial.println(firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();
+
+  return (String)firebaseData.pushName();
 }
 
 void dht11Sensor(){
   //DHT11
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-
-  //Firebase
-  FirebaseData fireData;
-  FirebaseJson firebaseJson;
+  float hum = dht.readHumidity();
+  float temp = dht.readTemperature();
 
   //Validar si falló la lectura
-  if (isnan(h) || isnan(t)) {
+  if (isnan(hum) || isnan(temp)) {
     Serial.println(F("Failed to read from DHT sensor!"));
     return;
   }
 
   //Enviar valores Firebase
-  firebaseJson.add("dato", t);
-  firebaseJson.add("createdAt", "11-06-20");
+  //Temperatura
+  firebaseJson.add("dato", temp);
+  firebaseJson.add("createdAt", (String)now());
   
-  if(Firebase.pushJSON(fireData, "/naves/1/sensores/temperatura/datos", firebaseJson)){
-    Serial.println(fireData.dataPath());
-    Serial.println(fireData.pushName());
-    Serial.println(fireData.dataPath() + "/"+ fireData.pushName());
-  } else Serial.println(fireData.errorReason());
+  if(Firebase.pushJSON(firebaseData, "/sensores/"+ idTemp +"/datos/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();
 
-  //Imprimir valores por Serial
-  Serial.print(F("Humidity: "));
-  Serial.print(h);
-  Serial.println(F("%"));
+  //Humedad
+  firebaseJson.add("dato", hum);
+  firebaseJson.add("createdAt", (String)now());
   
-  Serial.print(F("Temperature: "));
-  Serial.print(t);
-  Serial.println(F("°C")); 
+  if(Firebase.pushJSON(firebaseData, "/sensores/"+ idHum +"/datos/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();
+
+  printVal("Humidity: ", (String)hum, "%");
+  printVal("Temperature: ", (String)temp, "°C");
+
+  gTemp = temp;
+  gHum = hum;
+  ledsControl(); 
+}
+
+void fotorresistor(){
+  float luz = analogRead(A0);
+  Serial.println("Luz: " + (String)luz);
+  gLuz = luz;
   
+  //Luz
+  firebaseJson.add("dato", luz);
+  firebaseJson.add("createdAt", (String)now());
+
+  if(Firebase.pushJSON(firebaseData, "/sensores/"+ idLuz +"/datos/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();
+  ledsControl();
 }
 
 void bmp180Sensor(){
@@ -126,52 +353,62 @@ void bmp180Sensor(){
   char status;
   double temp, pres, pSeaLevel, alt;
 
-  //Firebase
-  FirebaseData fireData;
-  FirebaseJson firebaseJson;
+  Serial.println("BMP180");
 
   status = bmp180.startTemperature();
   if (status != 0){
     delay(status);
     status = bmp180.getTemperature(temp);
     
-    if (status != 0){
-      Serial.print("Temperature: ");
-      Serial.print(temp,2);
-      Serial.println(F("°C"));
+    if (status != 0){      
+      printVal("Temp: ", (String)temp, "°C");
       
       status = bmp180.startPressure(3);
       if (status != 0){
         delay(status);    
         status = bmp180.getPressure(pres, temp);
         
-        if (status != 0){
-          Serial.print("Abs. pressure: ");
-          Serial.print(pres, 2);
-          Serial.println(" mb");     
+        if (status != 0){          
+          printVal("PresAbs: ", (String)pres, "mb");
 
-          pSeaLevel = bmp180.sealevel(pres, ALTITUDE);
-          Serial.print("Rel. pressure: ");
-          Serial.print(pSeaLevel,2);
-          Serial.println(" mb");              
+          pSeaLevel = bmp180.sealevel(pres, ALTITUDE);                       
+          printVal("PresRel: ", (String)pSeaLevel, "mb"); 
 
-          alt = bmp180.altitude(pres, pSeaLevel);
-          Serial.print("Altitude: ");
-          Serial.print(alt,2);
-          Serial.println(" m"); 
-          
-          //Enviar valores Firebase     
-          firebaseJson.add("absoluta", pres);
-          firebaseJson.add("relativa", pSeaLevel);
-          firebaseJson.add("altitud", alt);
-          firebaseJson.add("createdAt", "11-06-20");
-          
-          if(Firebase.pushJSON(fireData, "/naves/1/sensores/presion/datos", firebaseJson)){
-            Serial.println(fireData.dataPath());
-            Serial.println(fireData.pushName());
-            Serial.println(fireData.dataPath() + "/"+ fireData.pushName());
-          } else Serial.println(fireData.errorReason());
+          alt = bmp180.altitude(pres, pSeaLevel);          
+          printVal("Altitude: ", (String)alt, "m");
                     
+          //Presión absoluta 
+          firebaseJson.add("dato", pres);
+          firebaseJson.add("createdAt", (String)now());
+
+          if(Firebase.pushJSON(firebaseData, "/sensores/"+ idPres +"/datos/", firebaseJson))
+            Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+          else Serial.println(firebaseData.errorReason());
+          firebaseJson.clear();
+
+          //Presión relativa        
+          firebaseJson.add("dato", pSeaLevel);
+          firebaseJson.add("createdAt", (String)now());
+
+          if(Firebase.pushJSON(firebaseData, "/sensores/"+ idPresRel +"/datos/", firebaseJson))
+            Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+          else Serial.println(firebaseData.errorReason());
+          firebaseJson.clear();
+
+          //Altitud
+          firebaseJson.add("dato", alt);
+          firebaseJson.add("createdAt", (String)now());          
+          
+          if(Firebase.pushJSON(firebaseData, "/sensores/"+ idAlt +"/datos/", firebaseJson))
+            Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+          else Serial.println(firebaseData.errorReason()); 
+          firebaseJson.clear();
+
+          //Valores para ledControl
+          gPres = pres;
+          gPresRel = pSeaLevel;
+          gAlt = alt;
+          ledsControl(); 
         }
         else Serial.println("error retrieving pressure measurement\n");
       }
@@ -180,4 +417,96 @@ void bmp180Sensor(){
     else Serial.println("error retrieving temperature measurement\n");
   }
   else Serial.println("error starting temperature measurement\n");
+}
+
+void blinkLEDFast(int led){
+  int i = 3;
+  while(i >= 0){
+    i = i - 1;
+    digitalWrite(led, HIGH);
+    delay(50);
+    digitalWrite(led, LOW);
+    delay(50);
+  }   
+}
+
+void blinkLEDSlow(int led){   
+  digitalWrite(led, HIGH);
+  delay(600);
+  digitalWrite(led, LOW);
+}
+
+float readValue(String sensor, String type){
+  float valor = NULL;
+  if (!Firebase.getFloat(firebaseData, "/sensores/"+ sensor +"/" + type)){
+   Serial.println(firebaseData.errorReason()); 
+   Serial.println(firebaseData.floatData()); 
+  }else{
+    printVal(sensor, " - ", (String)firebaseData.floatData());
+    valor = (float)firebaseData.floatData();
+  }
+  return valor;  
+}
+
+void ledControl(String sensor, int pin, float valSensor){
+  float maxValue, minValue;
+
+  maxValue = readValue(sensor, "maxVal");
+  if(valSensor >= maxValue && maxValue != NULL){
+    Serial.println("Fast");
+    blinkLEDFast(pin);
+  }
+  minValue = readValue(sensor, "minVal");      
+  if(valSensor <= minValue && maxValue != NULL){
+    Serial.println("Slow");
+    blinkLEDSlow(pin);  
+  }
+}
+
+void ledsControl(){
+  //gPres - D8
+  ledControl(idPres, D8, gPres);
+
+  //gPresRel - D7
+  ledControl(idPresRel, D7, gPresRel);
+
+  //gAlt - D6
+  ledControl(idAlt, D6, gAlt);
+
+  //gTemp - D5
+  ledControl(idTemp, D5, gTemp);
+
+  //gHum - D4
+  ledControl(idHum, D4, gHum);
+}
+
+void initSensors(){
+  idTemp = initSensor("Temperatura");
+  idHum = initSensor("Humedad");
+  idAlt = initSensor("Altitud");
+  idPres = initSensor("Presión absoluta");
+  idPresRel = initSensor("Presión relativa");
+  idLuz = initSensor("Fotorresistor");
+}
+
+String initSensor(String nombre){
+  //Luz
+  firebaseJson.add("nombre", nombre);
+  firebaseJson.add("datos", "");
+  firebaseJson.add("minVal", NULL);
+  firebaseJson.add("maxVal", NULL);
+  firebaseJson.add("msgMinVal", "");
+  firebaseJson.add("msgMaxVal", "");
+
+  if(Firebase.pushJSON(firebaseData, "/sensores/", firebaseJson))
+    Serial.println(firebaseData.dataPath() + "/"+ firebaseData.pushName());
+  else Serial.println(firebaseData.errorReason());
+  firebaseJson.clear();
+  return (String)firebaseData.pushName();  
+}
+
+void printVal(String val1, String val2, String val3){
+  Serial.print(val1);
+  Serial.print(val2);
+  Serial.println(val3);
 }
