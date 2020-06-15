@@ -17,12 +17,12 @@ body,
 html {
   box-sizing: border-box;
   font-family: 'Montserrat', sans-serif !important;
-  background-color: #dcdcdc;
   font-size: 16px;
 }
 #root {
   min-height: 100vh;
-  height: 100vh;
+  background-color: #dcdcdc;
+  /* height: 100vh; */
 }
 a {
   text-decoration: none;
@@ -32,6 +32,9 @@ a {
   height: 40px;
   width: 40px;
   border-radius: 10px;
+}
+.btn-container:hover {
+  cursor: pointer;
 }
 
 .btn-container > .btn-icon {
@@ -53,4 +56,28 @@ a {
   width: 400px !important;
   border: 3px dashed #939393 !important;
   border-radius: 10px !important;
+}
+
+/* Appbar */
+.appbar-button {
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  border: none;
+  background-color: #46c818;
+  color: white;
+  font-size: 2rem;
+  outline: none;
+}
+.appbar-button > svg {
+  margin-left: 0.6rem;
+}
+.appbar-button:hover {
+  cursor: pointer;
+  background-color: #329010;
+}
+
+/* Spinner */
+.spinner-wrapper {
+  min-height: 100vh;
 }

@@ -19,7 +19,9 @@ let firebaseConfig = {
   measurementId: 'G-2D5781M0HD'
 };
 
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
 export default function Home() {
   const [naves, setNaves] = useState([]);
@@ -28,6 +30,7 @@ export default function Home() {
   const [modalAddOpen, setModalAddOpen] = useState(false);
   const [modalEditOpen, setModalEditOpen] = useState(false);
   const [editNaveData, setEditNaveData] = useState({});
+  const [retrievedData, setRetrievedData] = useState(false);
 
   const handleDeleteClick = id => {
     // console.log('Trying to delete>', id);
@@ -98,9 +101,19 @@ export default function Home() {
       });
   };
 
-  const addNaves = newNaves => {
-    console.log('New nave, data recieved', newNaves);
-    setNaves(prevNaves => [...prevNaves, newNaves]);
+  const addNaves = newNave => {
+    // console.log('New nave, data recieved', newNaves);
+    // setNaves(prevNaves => [...prevNaves, newNave]);
+    if (naves && naves.length > 0 && retrievedData) {
+      setNaves(prevNaves => {
+        let lastPrevNave = prevNaves[prevNaves.length - 1];
+        console.log('prevNaves', prevNaves);
+        if (newNave.id !== lastPrevNave.id) return [...prevNaves, newNave];
+      });
+    } else if (naves && naves.length === 0 && retrievedData) {
+      setNaves(prevNaves => [...prevNaves, newNave]);
+    }
+    // setLoading(false);
   };
 
   const updateNave = newNave => {
@@ -127,6 +140,7 @@ export default function Home() {
     console.log('Retrieved naves', data);
     setNaves(data);
     setLoading(false);
+    setRetrievedData(true);
   };
 
   const handleCreateStation = (data, clearInputsCallback) => {
@@ -168,14 +182,19 @@ export default function Home() {
       retrieveNaves(Object.values(data));
     });
 
-    navesRef.on('child_added', function(snapshot) {
-      let data = snapshot.val();
-      data = {
-        ...data,
-        id: snapshot.key
-      };
-      addNaves(data);
-    });
+    navesRef
+      .endAt()
+      .limitToLast(1)
+      .on('child_added', function(snapshot) {
+        // setLoading(true);
+        let data = snapshot.val();
+        data = {
+          ...data,
+          id: snapshot.key
+        };
+        addNaves(data);
+        console.log('Child added', data);
+      });
 
     navesRef.on('child_removed', function(snapshot) {
       // console.log('key of nave', snapshot.key);
@@ -192,6 +211,9 @@ export default function Home() {
       console.log('Child changed', data);
       updateNave(data);
     });
+    return function cleanup() {
+      console.log('Desmondando');
+    };
   }, []);
 
   return (
